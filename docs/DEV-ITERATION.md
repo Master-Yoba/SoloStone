@@ -4,6 +4,35 @@ Building the installer and running setup after every plugin change takes minutes
 it builds the plugin and engine from your checkout and swaps the two DLLs into an already installed **test-hooks** copy.
 It is for development on your own machine. It is not part of any release.
 
+## What a test-hooks copy is
+
+A **test-hooks copy** is an install made from a build with `-p:TestHooks=true` (`stage.py --hooks`, `build.ps1 -HookBuild`).
+It is the same product with extra code compiled in for development and automated testing:
+
+- **Plugin:** a remote-control endpoint (`NativeTestControl`) that lets a tool read the game's state and UI and press
+  buttons, and the debug-match scenario files. It stays off until a flag file `enable-test-control` exists in the
+  copy's `reports\` folder, and the flag is bound to a single launch. The same plugin writes
+  `reports\plugin-loaded.txt` when it has loaded; the loop below waits for it.
+- **Launcher:** a file-based remote control for the launcher window (`TestControl`), switched on by an environment variable.
+- **Guards:** a lab guard and an Administrators-group check that a release build does not have (see the note below).
+
+A **release copy** (`SoloStone-Setup-<version>.exe`) is built without the flag. None of this code is in it, and `stage.py`
+scans the launcher and the plugin and stops if a release carries any trace of it, or if a hook build lacks it.
+So a test-hooks copy is for your own machine only: never ship one, and never publish its setup file.
+
+How to tell which one you have: `python tools\dev\redeploy.py` refuses an install whose plugin does not contain the
+`enable-test-control` string, with "not a TEST-HOOKS build". The hook setup file is named
+`SoloStone-TEST-HOOKS-Setup-<version>.exe`; the release one has no `TEST-HOOKS` in its name.
+
+## Set up a dev environment, start to finish
+
+1. Install the .NET SDK named in `global.json`, Python 3.10 or newer, Git and Inno Setup.
+2. Clone your fork and make a branch ([GIT.md](GIT.md)).
+3. Fill `references\` with your own client's libraries ([BUILDING.md](BUILDING.md), section 1). These stay in the ignored folder.
+4. Build and install a hook build once (**One-time setup** below). Uninstall any release copy first, since both install to `%LOCALAPPDATA%\SoloStone`.
+5. Change code, run `python tools\dev\redeploy.py`, launch, test. Repeat.
+6. Before a pull request: `python3 tests\run.py` and the release scan ([GIT.md](GIT.md)).
+
 ## What it changes
 
 The launcher refuses to start a copy whose plugin or engine DLL differs from the hashes it recorded at install time.
